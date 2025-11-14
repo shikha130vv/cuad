@@ -1,0 +1,12 @@
+
+# Requirements for CUAD Processing Tools
+
+# For OSS120 Bedrock Labeler
+boto3>=1.28.0
+pyyaml>=6.0
+
+# Optional: For enhanced CSV processing
+pandas>=1.5.0
+
+# Optional: For progress bars in batch processing
+tqdm>=4.65.0
