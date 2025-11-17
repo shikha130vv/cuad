@@ -626,7 +626,7 @@ def main():
     parser.add_argument(
         '--use-langgraph',
         action='store_true',
-        help='Use LangGraph classifier instead of standard approach'
+        help='Use LangGraph-based agentic classifier with reflection pattern (slower but more accurate)'
     )
     
     args = parser.parse_args()
@@ -650,6 +650,24 @@ def main():
     else:
         print("Using standard OSS120 classifier...")
         labeler = OSS120ContractLabeler(config_path=args.config)
+    
+    # Initialize LangGraph classifier if requested
+    langgraph_classifier = None
+    if args.use_langgraph:
+        try:
+            from langgraph_classifier import LangGraphContractClassifier, convert_langgraph_result_to_standard_format
+            langgraph_classifier = LangGraphContractClassifier(
+                bedrock_client=labeler.bedrock_client,
+                model_id=labeler.model_id
+            )
+            print("✓ LangGraph classifier initialized (reflection pattern enabled)")
+        except ImportError as e:
+            print(f"ERROR: LangGraph not available. Install with: pip install langgraph")
+            print(f"Details: {str(e)}")
+            return
+        except Exception as e:
+            print(f"ERROR: Failed to initialize LangGraph classifier: {str(e)}")
+            return
     
     contracts = []
     output_path = args.output
@@ -758,13 +776,29 @@ def main():
         return
     
     # Label contracts
-    approach_name = "LangGraph" if args.use_langgraph else "Standard OSS120"
-    print(f"\nLabeling {len(contracts)} contract(s) using {approach_name} approach...")
-    print(f"Parallel processing: {args.parallel}, Threads: {args.threads}, Resume: {not args.no_resume}")
+    if args.use_langgraph:
+        print(f"\nLabeling {len(contracts)} contract(s) using LangGraph reflection pattern...")
+        print(f"Mode: Three-agent reflection (Classifier → Critic → Arbitrator)")
+        print(f"Note: This is slower but more accurate than standard classification")
+    else:
+        print(f"\nLabeling {len(contracts)} contract(s) using AWS Bedrock OSS120 model...")
+        print(f"Parallel processing: {args.parallel}, Threads: {args.threads}, Resume: {not args.no_resume}")
     
     start_time = datetime.now()
     
-    if args.parallel:
+    if args.use_langgraph:
+        # Use LangGraph classifier (sequential only for now)
+        print(f"Processing contracts sequentially with reflection pattern...")
+        langgraph_results = langgraph_classifier.classify_contract_batch(contracts)
+        
+        # Convert LangGraph results to standard format
+        results = [convert_langgraph_result_to_standard_format(r) for r in langgraph_results]
+        
+        # Export to CSV
+        labeler.export_to_csv(results, output_path)
+        print(f"\n✓ Results saved to {output_path}")
+        
+    elif args.parallel:
         # Use parallel processing with incremental persistence
         results = labeler.classify_contract_batch_parallel(
             contracts,
