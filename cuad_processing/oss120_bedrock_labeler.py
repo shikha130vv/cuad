@@ -14,6 +14,10 @@ import boto3
 from typing import Dict, List, Optional, Any
 import yaml
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
+import csv
+from datetime import datetime
 
 
 class OSS120ContractLabeler:
@@ -79,6 +83,7 @@ class OSS120ContractLabeler:
         self.config = self._load_config(config_path)
         self.bedrock_client = self._initialize_bedrock_client()
         self.model_id = self.config.get('bedrock_model_id', 'oss120')
+        self.write_lock = threading.Lock()
         
     def _load_config(self, config_path: str) -> Dict[str, Any]:
         """Load configuration from YAML or JSON file."""
@@ -221,7 +226,7 @@ Respond only with the JSON object, no additional text."""
         categories: Optional[List[str]] = None
     ) -> List[Dict[str, Any]]:
         """
-        Label multiple contracts in batch.
+        Label multiple contracts in batch (sequential processing).
         
         Args:
             contracts: List of dictionaries with 'id' and 'text' keys
@@ -253,6 +258,162 @@ Respond only with the JSON object, no additional text."""
         
         return results
     
+    def _process_single_contract(
+        self,
+        contract: Dict[str, str],
+        categories: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
+        """
+        Process a single contract (used by parallel processing).
+        
+        Args:
+            contract: Dictionary with 'id' and 'text' keys
+            categories: Optional list of specific categories to analyze
+            
+        Returns:
+            Dictionary with contract ID, labels, and status
+        """
+        contract_id = contract.get('id', 'unknown')
+        contract_text = contract.get('text', '')
+        
+        try:
+            labels = self.label_contract(contract_text, categories)
+            return {
+                'contract_id': contract_id,
+                'labels': labels,
+                'status': 'success'
+            }
+        except Exception as e:
+            print(f"ERROR processing contract {contract_id}: {str(e)}")
+            return {
+                'contract_id': contract_id,
+                'labels': {},
+                'status': 'error',
+                'error': str(e)
+            }
+    
+    def label_contract_batch_parallel(
+        self,
+        contracts: List[Dict[str, str]],
+        output_path: str,
+        categories: Optional[List[str]] = None,
+        max_workers: int = 200,
+        resume: bool = True
+    ) -> List[Dict[str, Any]]:
+        """
+        Label multiple contracts in parallel with incremental persistence and resume capability.
+        
+        Args:
+            contracts: List of dictionaries with 'id' and 'text' keys
+            output_path: Path to save the CSV file (used for incremental writes)
+            categories: Optional list of specific categories to analyze
+            max_workers: Number of parallel threads (default: 200)
+            resume: Whether to skip already processed contracts (default: True)
+            
+        Returns:
+            List of dictionaries with contract IDs and their labels
+        """
+        output_file = Path(output_path)
+        progress_file = output_file.parent / f".{output_file.stem}_progress.txt"
+        
+        # Track processed contracts
+        processed_ids = set()
+        if resume and progress_file.exists():
+            with open(progress_file, 'r') as f:
+                processed_ids = set(line.strip() for line in f if line.strip())
+            print(f"Resume mode: Found {len(processed_ids)} already processed contracts")
+        
+        # Filter out already processed contracts
+        contracts_to_process = [
+            c for c in contracts 
+            if c.get('id', 'unknown') not in processed_ids
+        ]
+        
+        if not contracts_to_process:
+            print("All contracts already processed!")
+            return []
+        
+        print(f"Processing {len(contracts_to_process)} contracts with {max_workers} threads...")
+        
+        # Initialize CSV file with header if it doesn't exist
+        if not output_file.exists():
+            self._initialize_csv(output_path)
+        
+        results = []
+        completed_count = 0
+        total_count = len(contracts_to_process)
+        
+        # Process contracts in parallel
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all tasks
+            future_to_contract = {
+                executor.submit(self._process_single_contract, contract, categories): contract
+                for contract in contracts_to_process
+            }
+            
+            # Process completed tasks as they finish
+            for future in as_completed(future_to_contract):
+                contract = future_to_contract[future]
+                contract_id = contract.get('id', 'unknown')
+                
+                try:
+                    result = future.result()
+                    results.append(result)
+                    
+                    # Only persist successful results
+                    if result['status'] == 'success':
+                        self._append_result_to_csv(result, output_path)
+                        
+                        # Mark as processed
+                        with self.write_lock:
+                            with open(progress_file, 'a') as f:
+                                f.write(f"{contract_id}\n")
+                    
+                    completed_count += 1
+                    if completed_count % 10 == 0 or completed_count == total_count:
+                        print(f"Progress: {completed_count}/{total_count} contracts processed")
+                        
+                except Exception as e:
+                    print(f"ERROR: Unexpected exception for contract {contract_id}: {str(e)}")
+                    results.append({
+                        'contract_id': contract_id,
+                        'labels': {},
+                        'status': 'error',
+                        'error': str(e)
+                    })
+        
+        return results
+    
+    def _initialize_csv(self, output_path: str):
+        """Initialize CSV file with header."""
+        header = ['contract_id']
+        for category in self.CUAD_CATEGORIES:
+            col_name = category.lower().replace(' ', '_').replace('/', '_').replace('-', '_')
+            header.extend([f'{col_name}_text', f'{col_name}_label'])
+        
+        with self.write_lock:
+            with open(output_path, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(header)
+    
+    def _append_result_to_csv(self, result: Dict[str, Any], output_path: str):
+        """Append a single result to the CSV file (thread-safe)."""
+        if result['status'] != 'success':
+            return
+        
+        row = [result['contract_id']]
+        labels = result['labels']
+        
+        for category in self.CUAD_CATEGORIES:
+            category_data = labels.get(category, {'label': 0, 'text': ''})
+            row.append(category_data.get('text', ''))
+            row.append(category_data.get('label', 0))
+        
+        with self.write_lock:
+            with open(output_path, 'a', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(row)
+    
     def export_to_csv(
         self, 
         labeled_contracts: List[Dict[str, Any]], 
@@ -265,8 +426,6 @@ Respond only with the JSON object, no additional text."""
             labeled_contracts: List of labeled contract results
             output_path: Path to save the CSV file
         """
-        import csv
-        
         # Create header with contract_id + 82 columns (41 categories × 2)
         header = ['contract_id']
         for category in self.CUAD_CATEGORIES:
@@ -303,8 +462,6 @@ def load_contracts_from_csv(csv_path: str) -> List[Dict[str, str]]:
     Returns:
         List of dictionaries with 'id' and 'text' keys for processing
     """
-    import csv
-    
     contracts = []
     
     with open(csv_path, 'r', encoding='utf-8') as f:
@@ -341,7 +498,7 @@ def main():
     import os
     
     parser = argparse.ArgumentParser(
-        description='Label contracts using AWS Bedrock OSS120 model'
+        description='Label contracts using AWS Bedrock OSS120 model with parallel processing'
     )
     parser.add_argument(
         '--config',
@@ -374,6 +531,23 @@ def main():
         '--process-output-folder',
         action='store_true',
         help='Process all CSV files from the output folder generated by generate_cuad_csv.py'
+    )
+    parser.add_argument(
+        '--threads',
+        type=int,
+        default=200,
+        help='Number of parallel threads for processing (default: 200)'
+    )
+    parser.add_argument(
+        '--no-resume',
+        action='store_true',
+        help='Disable resume capability (start from scratch)'
+    )
+    parser.add_argument(
+        '--parallel',
+        action='store_true',
+        default=True,
+        help='Enable parallel processing (default: True)'
     )
     
     args = parser.parse_args()
@@ -467,6 +641,8 @@ def main():
             print("  --input-csv <file>          : Process a specific CSV file from generate_cuad_csv.py")
             print("  --process-output-folder     : Process all CSV files in the output directory")
             print("  --output-dir <dir>          : Specify output directory (default: ./cuad_processing/output)")
+            print("  --threads <n>               : Number of parallel threads (default: 200)")
+            print("  --no-resume                 : Disable resume capability")
             return
     
     if not contracts:
@@ -475,11 +651,41 @@ def main():
     
     # Label contracts
     print(f"\nLabeling {len(contracts)} contract(s) using AWS Bedrock OSS120 model...")
-    results = labeler.label_contract_batch(contracts)
+    print(f"Parallel processing: {args.parallel}, Threads: {args.threads}, Resume: {not args.no_resume}")
     
-    # Export to CSV
-    labeler.export_to_csv(results, output_path)
-    print(f"\n✓ Results saved to {output_path}")
+    start_time = datetime.now()
+    
+    if args.parallel:
+        # Use parallel processing with incremental persistence
+        results = labeler.label_contract_batch_parallel(
+            contracts,
+            output_path,
+            max_workers=args.threads,
+            resume=not args.no_resume
+        )
+        print(f"\n✓ Results incrementally saved to {output_path}")
+    else:
+        # Use sequential processing
+        results = labeler.label_contract_batch(contracts)
+        labeler.export_to_csv(results, output_path)
+        print(f"\n✓ Results saved to {output_path}")
+    
+    end_time = datetime.now()
+    duration = (end_time - start_time).total_seconds()
+    
+    # Print summary
+    success_count = sum(1 for r in results if r['status'] == 'success')
+    error_count = sum(1 for r in results if r['status'] == 'error')
+    
+    print(f"\n{'='*60}")
+    print(f"Processing Summary:")
+    print(f"  Total contracts: {len(contracts)}")
+    print(f"  Successful: {success_count}")
+    print(f"  Failed: {error_count}")
+    print(f"  Duration: {duration:.2f} seconds")
+    if success_count > 0:
+        print(f"  Average time per contract: {duration/len(contracts):.2f} seconds")
+    print(f"{'='*60}")
 
 
 if __name__ == '__main__':
