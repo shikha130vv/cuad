@@ -205,10 +205,10 @@ if __name__ == '__main__':
     import argparse
     
     parser = argparse.ArgumentParser(description='Generate CSV from CUAD dataset')
-    parser.add_argument('--data-dir', default='./data', help='Directory containing CUAD JSON files')
-    parser.add_argument('--output-dir', default='./output', help='Directory to save CSV files')
-    parser.add_argument('--input-json', help='Process a single JSON file')
-    parser.add_argument('--output-csv', help='Output CSV file path (for single file processing)')
+    parser.add_argument('--data-dir', default='./cuad_processing/data', help='Directory containing CUAD JSON files')
+    parser.add_argument('--output-dir', default='./cuad_processing/output', help='Directory to save CSV files')
+    parser.add_argument('--input-json', default="cuad_processing/data/CUADv1.json", help='Process a single JSON file')
+    parser.add_argument('--output-csv', default="cuad_processing/output/cuad.csv", help='Output CSV file path (for single file processing)')
     
     args = parser.parse_args()
     

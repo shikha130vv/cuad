@@ -78,7 +78,7 @@ class OSS120ContractLabeler:
         """
         self.config = self._load_config(config_path)
         self.bedrock_client = self._initialize_bedrock_client()
-        self.model_id = self.config.get('model_id', 'oss120')
+        self.model_id = self.config.get('bedrock_model_id', 'oss120')
         
     def _load_config(self, config_path: str) -> Dict[str, Any]:
         """Load configuration from YAML or JSON file."""
@@ -100,13 +100,15 @@ class OSS120ContractLabeler:
         
         return config
     
+
+    
     def _initialize_bedrock_client(self):
         """Initialize AWS Bedrock client with credentials from config."""
         return boto3.client(
             service_name='bedrock-runtime',
-            region_name=self.config['aws_region'],
-            aws_access_key_id=self.config['aws_access_key_id'],
-            aws_secret_access_key=self.config['aws_secret_access_key']
+            region_name=self.config['bedrock_region'],
+            aws_access_key_id=self.config['bedrock_access_key'],
+            aws_secret_access_key=self.config['bedrock_secret_access_key']
         )
     
     def _create_prompt(self, contract_text: str, categories: Optional[List[str]] = None) -> str:
@@ -308,6 +310,7 @@ def main():
         '--input',
         type=str,
         required=True,
+        default
         help='Input contract text file or JSON file with contracts'
     )
     parser.add_argument(
@@ -324,6 +327,7 @@ def main():
     
     # Load input
     input_path = Path(args.input)
+    
     if input_path.suffix == '.json':
         with open(input_path, 'r') as f:
             contracts = json.load(f)
