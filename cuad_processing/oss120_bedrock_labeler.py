@@ -175,12 +175,19 @@ Respond only with the JSON object, no additional text."""
         """
         prompt = self._create_prompt(contract_text, categories)
         
-        # Prepare the request body for Bedrock
+        # Prepare the request body for Bedrock using the correct messages format
+        # This format is compatible with Claude and other Bedrock models
         request_body = {
-            "prompt": prompt,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
             "max_tokens": max_tokens,
             "temperature": temperature,
             "top_p": 0.9,
+            "anthropic_version": "bedrock-2023-05-31"
         }
         
         try:
@@ -195,8 +202,16 @@ Respond only with the JSON object, no additional text."""
             # Parse the response
             response_body = json.loads(response['body'].read())
             
-            # Extract the generated text
-            if 'completion' in response_body:
+            # Extract the generated text from the response
+            # For Claude models, the response format is different
+            result_text = ""
+            if 'content' in response_body:
+                # Claude models return content as an array of content blocks
+                if isinstance(response_body['content'], list) and len(response_body['content']) > 0:
+                    result_text = response_body['content'][0].get('text', '')
+                else:
+                    result_text = str(response_body['content'])
+            elif 'completion' in response_body:
                 result_text = response_body['completion']
             elif 'generated_text' in response_body:
                 result_text = response_body['generated_text']
