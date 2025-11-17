@@ -1,7 +1,7 @@
 
 # Requirements for CUAD Processing Tools
 
-# For OSS120 Bedrock Labeler
+# Core requirements for OSS120 Bedrock Labeler
 boto3>=1.28.0
 pyyaml>=6.0
 
@@ -10,3 +10,9 @@ pandas>=1.5.0
 
 # Optional: For progress bars in batch processing
 tqdm>=4.65.0
+
+# Optional: For LangGraph-based agentic classifier with reflection pattern
+# Install with: pip install langgraph
+# langgraph>=0.0.20
+# Note: LangGraph requires additional dependencies (langchain-core, etc.)
+# These will be installed automatically when you install langgraph
