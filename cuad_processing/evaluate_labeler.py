@@ -492,63 +492,65 @@ def save_results_csv(
 
 
 def main():
-    """Main evaluation function."""
     parser = argparse.ArgumentParser(
         description='Evaluate CUAD Bedrock Labeler performance',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
-  # Basic evaluation
-  python evaluate_labeler.py --predictions pred.csv --ground-truth gt.csv
-  
-  # Save results to JSON
-  python evaluate_labeler.py --predictions pred.csv --ground-truth gt.csv --output results.json
-  
-  # Save results to CSV
-  python evaluate_labeler.py --predictions pred.csv --ground-truth gt.csv --output results.csv --output-format csv
-  
-  # Specify custom output directory
-  python evaluate_labeler.py --predictions pred.csv --ground-truth gt.csv --output-dir ./evaluation_results
-        """
-    )
+    Examples:
+    # Basic evaluation
+    python evaluate_labeler.py --predictions pred.csv --ground-truth gt.csv
     
+    # Save results to JSON
+    python evaluate_labeler.py --predictions pred.csv --ground-truth gt.csv --output results.json
+    
+    # Save results to CSV
+    python evaluate_labeler.py --predictions pred.csv --ground-truth gt.csv --output results.csv --output-format csv
+    
+    # Specify custom output directory
+    python evaluate_labeler.py --predictions pred.csv --ground-truth gt.csv --output-dir ./evaluation_results
+            """
+    )
+
     parser.add_argument(
         '--predictions',
         type=str,
-        required=True,
+        default="./cuad_processing/output/labeled_contracts.csv",
         help='Path to predictions CSV file (output from bedrock labeler)'
     )
     parser.add_argument(
         '--ground-truth',
         type=str,
-        required=True,
+        default="./cuad_processing/output/cuad.csv",
         help='Path to ground truth CSV file (from generate_cuad_csv.py)'
     )
     parser.add_argument(
         '--output',
         type=str,
+        default="./cuad_processing/output/evaluation_results.csv",
         help='Path to save evaluation results (JSON or CSV based on extension or --output-format)'
     )
     parser.add_argument(
         '--output-format',
         type=str,
         choices=['json', 'csv'],
-        default='json',
-        help='Output format for results (default: json)'
+        default='csv',
+        help='Output format for results (default: csv)'
     )
     parser.add_argument(
         '--output-dir',
         type=str,
-        default='./evaluation_results',
-        help='Directory to save output files (default: ./evaluation_results)'
+        default='./cuad_processing/output',
+        help='Directory to save output files (default: ./cuad_processing/output)'
     )
     parser.add_argument(
         '--quiet',
         action='store_true',
         help='Suppress console output (only save to file)'
     )
-    
+
     args = parser.parse_args()
+    
+
     
     try:
         # Load data
