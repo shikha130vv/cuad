@@ -93,9 +93,13 @@ def extract_data_from_json(json_file_path: str) -> List[Dict[str, Any]]:
     contracts = []
     
     # Process each contract in the dataset
+    i_item = 0
     for item in data.get('data', []):
+        i_item += 1
+        i_para = 0
         for paragraph in item.get('paragraphs', []):
-            contract_id = paragraph.get('context_id', 'unknown')
+            i_para += 1
+            contract_id = paragraph.get('context_id', "item_" + str(i_item) + "_para_" + str(i_para))
             contract_text = paragraph.get('context', '')
             
             # Initialize contract record

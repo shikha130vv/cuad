@@ -118,42 +118,68 @@ class OSS120ContractLabeler:
     
     def _create_prompt(self, contract_text: str, categories: Optional[List[str]] = None) -> str:
         """
-        Create a prompt for the OSS120 model to analyze contract text.
-        
-        Args:
-            contract_text: The contract text to analyze
-            categories: Optional list of specific categories to focus on
-            
-        Returns:
-            Formatted prompt string
+        Create a prompt for the OSS120 model to analyze contract text and return
+        STRICT, machine-parseable JSON.
         """
         if categories is None:
             categories = self.CUAD_CATEGORIES
-        
+
         categories_list = "\n".join([f"{i+1}. {cat}" for i, cat in enumerate(categories)])
-        
-        prompt = f"""You are a legal contract analysis expert. Analyze the following contract text and identify which of these categories are present:
 
-{categories_list}
+        prompt = f"""You are a precise legal contract analysis model.
 
-For each category found, extract the relevant text/clause and indicate whether it exists (1) or not (0).
+        Analyze the following contract text and, for EVERY category in the list below, decide:
+        - Does this category appear in the contract text? (1 = yes, 0 = no)
+        - If yes, extract the most relevant clause text.
+        - If no, use an empty string for the clause text.
 
-Contract Text:
-{contract_text}
+        Categories:
+        {categories_list}
 
-Please provide your analysis in the following JSON format:
-{{
-    "category_name": {{
-        "label": 0 or 1,
-        "text": "extracted clause text or empty string"
-    }},
-    ...
-}}
+        Contract Text:
+        \"\"\"{contract_text}\"\"\"
 
-Respond only with the JSON object, no additional text."""
-        
+        OUTPUT FORMAT (VERY IMPORTANT):
+        - Return a SINGLE JSON object.
+        - The JSON MUST be valid according to the JSON standard:
+        - Use double quotes for all keys and string values.
+        - Do NOT use single quotes anywhere.
+        - Do NOT include comments, ellipses (...), or trailing commas.
+        - Do NOT include any extra keys.
+        - Do NOT wrap the JSON in markdown fences.
+        - Do NOT output explanations, reasoning, or any other text outside the JSON.
+
+        The JSON object MUST have EXACTLY one key per category, where the key is the category name
+        EXACTLY as written in the list above. Each value MUST be an object with this structure:
+
+        {{
+        "Category Name": {{
+            "label": 0 or 1,
+            "text": "extracted clause text or empty string"
+        }},
+        ...
+        }}
+
+        Example of the structure (this is only an illustrative example):
+
+        {{
+        "Document Name": {{
+            "label": 1,
+            "text": "MASTER SERVICES AGREEMENT"
+        }},
+        "Parties": {{
+            "label": 0,
+            "text": ""
+        }}
+        }}
+
+        Now produce ONLY the final JSON object, nothing else."""
         return prompt
+
     
+    import json
+    from typing import Optional, List, Dict, Any
+
     def label_contract(
         self, 
         contract_text: str, 
@@ -174,9 +200,7 @@ Respond only with the JSON object, no additional text."""
             Dictionary mapping category names to their labels and extracted text
         """
         prompt = self._create_prompt(contract_text, categories)
-        
-        # Prepare the request body for Bedrock using the correct messages format
-        # This format is compatible with Claude and other Bedrock models
+
         request_body = {
             "messages": [
                 {
@@ -186,10 +210,8 @@ Respond only with the JSON object, no additional text."""
             ],
             "max_tokens": max_tokens,
             "temperature": temperature,
-            "top_p": 0.9,
-            "anthropic_version": "bedrock-2023-05-31"
         }
-        
+
         try:
             # Invoke the model
             response = self.bedrock_client.invoke_model(
@@ -198,42 +220,79 @@ Respond only with the JSON object, no additional text."""
                 accept="application/json",
                 body=json.dumps(request_body)
             )
-            
-            # Parse the response
-            response_body = json.loads(response['body'].read())
-            
-            # Extract the generated text from the response
-            # For Claude models, the response format is different
+
+            # Parse Bedrock's wrapper JSON
+            response_body = json.loads(response["body"].read())
+
+            # ----------- EXTRACT MODEL TEXT PROPERLY -----------
             result_text = ""
-            if 'content' in response_body:
-                # Claude models return content as an array of content blocks
-                if isinstance(response_body['content'], list) and len(response_body['content']) > 0:
-                    result_text = response_body['content'][0].get('text', '')
+
+            if "choices" in response_body:
+                # OpenAI-style schema (what OSS120 is using)
+                choice = response_body["choices"][0]
+                message = choice.get("message", {})
+                result_text = message.get("content", "") or ""
+            elif "content" in response_body:
+                # Claude-style
+                if isinstance(response_body["content"], list) and response_body["content"]:
+                    # e.g. [{"type": "text", "text": "..."}, ...]
+                    block = response_body["content"][0]
+                    if isinstance(block, dict):
+                        result_text = block.get("text", "") or ""
+                    else:
+                        result_text = str(block)
                 else:
-                    result_text = str(response_body['content'])
-            elif 'completion' in response_body:
-                result_text = response_body['completion']
-            elif 'generated_text' in response_body:
-                result_text = response_body['generated_text']
+                    result_text = str(response_body["content"])
+            elif "completion" in response_body:
+                # Some completion-style models
+                result_text = response_body["completion"]
+            elif "generated_text" in response_body:
+                # Generic text field
+                result_text = response_body["generated_text"]
             else:
+                # Fallback (shouldn't be hit for OSS120 now)
                 result_text = str(response_body)
-            
-            # Parse the JSON response from the model
-            # Remove any markdown code blocks if present
+
+            # ----------- CLEAN UP WRAPPING / REASONING -----------
             result_text = result_text.strip()
-            if result_text.startswith('```json'):
+
+            # Strip markdown fences if present
+            if result_text.startswith("```json"):
                 result_text = result_text[7:]
-            if result_text.startswith('```'):
+            if result_text.startswith("```"):
                 result_text = result_text[3:]
-            if result_text.endswith('```'):
+            if result_text.endswith("```"):
                 result_text = result_text[:-3]
+
             result_text = result_text.strip()
-            
-            labels = json.loads(result_text)
+
+            # Strip <reasoning> ... </reasoning> if present
+            # (OSS models are clearly prepending reasoning)
+            reasoning_start = result_text.find("<reasoning>")
+            reasoning_end = result_text.find("</reasoning>")
+
+            if reasoning_start != -1 and reasoning_end != -1:
+                # Keep only text after </reasoning>
+                result_text = result_text[reasoning_end + len("</reasoning>"):].strip()
+
+            # ----------- EXTRACT JSON SUBSTRING -----------
+            start = result_text.find("{")
+            end = result_text.rfind("}")
+
+            if start == -1 or end == -1 or end < start:
+                raise ValueError(f"No JSON object found in model output:\n{result_text[:500]}")
+
+            json_str = result_text[start:end + 1]
+
+            # ----------- PARSE JSON -----------
+            labels = json.loads(json_str)
+
             return labels
-            
+
         except Exception as e:
-            raise Exception(f"Error invoking Bedrock model: {str(e)}")
+            # Use result_text if it exists for debugging
+            raise Exception(f"Error invoking Bedrock model: {str(e)}  Output: {result_text}")
+
     
     def label_contract_batch(
         self, 
