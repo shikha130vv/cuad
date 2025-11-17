@@ -586,8 +586,25 @@ def main():
     parallel = True  # Enable parallel processing
     use_langgraph = False  # Use standard approach by default
     
-    # Initialize labeler
-    labeler = OSS120ContractLabeler(config_path=config_path)
+    # Initialize labeler based on approach
+    if args.use_langgraph:
+        print("Using LangGraph classifier with reflection design pattern...")
+        from langgraph_classifier import LangGraphContractClassifier
+        
+        # Initialize Bedrock client
+        import boto3
+        bedrock_client = boto3.client('bedrock-runtime', region_name='us-west-2')
+        
+        # Initialize LangGraph classifier
+        labeler = LangGraphContractClassifier(
+            bedrock_client=bedrock_client,
+            model_id="oss120",
+            max_tokens=4096,
+            temperature=0.1
+        )
+    else:
+        print("Using standard OSS120 classifier...")
+        labeler = OSS120ContractLabeler(config_path=args.config)
     
     # Initialize LangGraph classifier if requested
     langgraph_classifier = None
@@ -634,7 +651,10 @@ def main():
         
         # Set default output path if not specified
         if not output_path:
-            output_path = str(output_dir / 'labeled_contracts.csv')
+            if args.use_langgraph:
+                output_path = str(output_dir / 'labeled_contracts_langgraph.csv')
+            else:
+                output_path = str(output_dir / 'labeled_contracts.csv')
     
     elif input_file_csv:
         # Process specific CSV file
@@ -643,8 +663,11 @@ def main():
         print(f"Loaded {len(contracts)} contracts")
         
         if not output_path:
-            input_path = Path(input_file_csv)
-            output_path = str(input_path.parent / f'labeled_{input_path.name}')
+            input_path = Path(args.input_csv)
+            if args.use_langgraph:
+                output_path = str(input_path.parent / f'labeled_langgraph_{input_path.name}')
+            else:
+                output_path = str(input_path.parent / f'labeled_{input_path.name}')
     
     elif input_file:
         # Original functionality: process JSON or text file
@@ -663,7 +686,10 @@ def main():
             contracts = [{'id': input_path.stem, 'text': contract_text}]
         
         if not output_path:
-            output_path = str(input_path.parent / f'labeled_{input_path.stem}.csv')
+            if args.use_langgraph:
+                output_path = str(input_path.parent / f'labeled_langgraph_{input_path.stem}.csv')
+            else:
+                output_path = str(input_path.parent / f'labeled_{input_path.stem}.csv')
     
     else:
         # Default behavior: look for CSV files in the output folder
@@ -681,7 +707,10 @@ def main():
                     print(f"  Loaded {len(file_contracts)} contracts from {csv_file.name}")
                 
                 if not output_path:
-                    output_path = str(output_dir / 'labeled_contracts.csv')
+                    if args.use_langgraph:
+                        output_path = str(output_dir / 'labeled_contracts_langgraph.csv')
+                    else:
+                        output_path = str(output_dir / 'labeled_contracts.csv')
             else:
                 print(f"Error: No CSV files found in {output_dir}")
                 print("Please specify --input, --input-csv, or run generate_cuad_csv.py first.")
@@ -726,7 +755,12 @@ def main():
         
     elif parallel:
         # Use parallel processing with incremental persistence
-        results = labeler.label_contract_batch_parallel(
+        results = labeler.classify_contract_batch_parallel(
+            contracts,
+            output_path,
+            max_workers=args.threads,
+            resume=not args.no_resume
+        ) if args.use_langgraph else labeler.label_contract_batch_parallel(
             contracts,
             output_path,
             max_workers=threads,
@@ -735,8 +769,13 @@ def main():
         print(f"\n✓ Results incrementally saved to {output_path}")
     else:
         # Use sequential processing
-        results = labeler.label_contract_batch(contracts)
-        labeler.export_to_csv(results, output_path)
+        results = labeler.classify_contract_batch(contracts) if args.use_langgraph else labeler.label_contract_batch(contracts)
+        if not args.use_langgraph:
+            labeler.export_to_csv(results, output_path)
+        else:
+            # For LangGraph, we need to manually export since it doesn't have export_to_csv
+            # But the parallel method already writes to CSV, so for sequential we need to handle it
+            print("Warning: Sequential processing for LangGraph not fully implemented. Use --parallel instead.")
         print(f"\n✓ Results saved to {output_path}")
     
     end_time = datetime.now()

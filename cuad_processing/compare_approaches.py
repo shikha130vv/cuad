@@ -6,21 +6,21 @@ This script automatically compares the performance of different approaches (Stan
 for CUAD contract labeling by running evaluations on both and generating comparative analysis.
 
 Features:
-- Auto-detects prediction files from both approaches
-- Minimal command-line arguments required
+- Uses hardcoded paths based on directory structure
+- No command-line arguments required
 - Generates side-by-side comparison tables
 - Shows which approach performs better for each metric
 - Outputs results in console, JSON, and CSV formats
 
 Usage:
-    # Basic usage (auto-detect all files)
+    # Simply run the script
     python compare_approaches.py
-    
-    # Specify custom files
-    python compare_approaches.py --ground-truth output/cuad.csv --standard-predictions output/labeled_contracts.csv
-    
-    # Custom output location
-    python compare_approaches.py --output comparison_results.json
+
+Hardcoded Paths:
+    - Ground truth: cuad_processing/output/cuad.csv
+    - Standard predictions: cuad_processing/output/labeled_contracts.csv
+    - LangGraph predictions: cuad_processing/output/labeled_contracts_langgraph.csv
+    - Output directory: cuad_processing/output/
 
 Author: CUAD Evaluation Team
 Date: 2025-11-17
@@ -32,7 +32,6 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Tuple, Any, Optional
 from collections import defaultdict
-import glob
 
 import numpy as np
 from sklearn.metrics import (
@@ -42,6 +41,16 @@ from sklearn.metrics import (
     f1_score,
     confusion_matrix
 )
+
+
+# ============================================================================
+# HARDCODED PATHS - NO COMMAND-LINE ARGUMENTS
+# ============================================================================
+
+GROUND_TRUTH = "cuad_processing/output/cuad.csv"
+STANDARD_PREDICTIONS = "cuad_processing/output/labeled_contracts.csv"
+LANGGRAPH_PREDICTIONS = "cuad_processing/output/labeled_contracts_langgraph.csv"
+OUTPUT_DIR = "cuad_processing/output/"
 
 
 # The 41 CUAD categories (standard order)
@@ -93,26 +102,6 @@ CUAD_CATEGORIES = [
 def normalize_category_name(category: str) -> str:
     """Normalize category name to match CSV column format."""
     return category.lower().replace(" ", "_").replace("/", "_").replace("-", "_")
-
-
-def auto_detect_file(pattern: str, description: str) -> Optional[str]:
-    """
-    Auto-detect a file based on a glob pattern.
-    
-    Args:
-        pattern: Glob pattern to search for
-        description: Description of the file being searched
-        
-    Returns:
-        Path to the detected file or None if not found
-    """
-    matches = glob.glob(pattern)
-    if matches:
-        # Return the most recently modified file
-        latest_file = max(matches, key=lambda x: Path(x).stat().st_mtime)
-        print(f"  ✓ Auto-detected {description}: {latest_file}")
-        return latest_file
-    return None
 
 
 def load_csv_data(csv_path: str) -> Tuple[List[str], Dict[str, Dict[str, int]]]:
@@ -524,76 +513,33 @@ def save_comparison_csv(comparison: Dict[str, Any], output_path: str):
 
 
 def main():
-    """Compare Standard and LangGraph approaches for CUAD contract labeling.
-    
-    All paths are hardcoded - no arguments needed.
-    Simply run: python compare_approaches.py
-    """
-    
-    # Hardcoded paths based on directory structure
-    ground_truth_path = "cuad_processing/output/cuad.csv"
-    standard_predictions_path = "cuad_processing/output/labeled_contracts.csv"
-    langgraph_predictions_path = "cuad_processing/output/labeled_contracts_langgraph.csv"
-    output_path = "cuad_processing/output/comparison_results.json"
-    output_format = "both"  # json, csv, or both
-    
+    """Main function with hardcoded paths."""
     try:
         print("\n" + "="*100)
-        print("CUAD COMPARATIVE EVALUATION: AUTO-DETECTION MODE")
+        print("CUAD COMPARATIVE EVALUATION: HARDCODED PATHS MODE")
         print("="*100)
+        print("\nUsing hardcoded paths:")
+        print(f"  Ground Truth:        {GROUND_TRUTH}")
+        print(f"  Standard Predictions: {STANDARD_PREDICTIONS}")
+        print(f"  LangGraph Predictions: {LANGGRAPH_PREDICTIONS}")
+        print(f"  Output Directory:     {OUTPUT_DIR}")
         
-        # Auto-detect files if not provided
-        print("\nAuto-detecting files...")
-        
-        # Ground truth
-        if ground_truth_path is None:
-            gt_path = auto_detect_file('output/cuad.csv', 'ground truth')
-            if gt_path is None:
-                gt_path = auto_detect_file('cuad_processing/output/cuad.csv', 'ground truth')
-            if gt_path is None:
-                raise FileNotFoundError(
-                    "Could not auto-detect ground truth file. "
-                    "Please specify with --ground-truth"
-                )
-        else:
-            gt_path = ground_truth_path
-            print(f"  ✓ Using specified ground truth: {gt_path}")
-        
-        # Standard predictions
-        if standard_predictions_path is None:
-            std_path = auto_detect_file('output/labeled_contracts.csv', 'standard predictions')
-            if std_path is None:
-                std_path = auto_detect_file('cuad_processing/output/labeled_contracts.csv', 'standard predictions')
-            if std_path is None:
-                raise FileNotFoundError(
-                    "Could not auto-detect standard predictions file. "
-                    "Please specify with --standard-predictions"
-                )
-        else:
-            std_path = standard_predictions_path
-            print(f"  ✓ Using specified standard predictions: {std_path}")
-        
-        # LangGraph predictions
-        if langgraph_predictions_path is None:
-            lg_path = auto_detect_file('output/labeled_contracts_langgraph.csv', 'LangGraph predictions')
-            if lg_path is None:
-                lg_path = auto_detect_file('cuad_processing/output/labeled_contracts_langgraph.csv', 'LangGraph predictions')
-            if lg_path is None:
-                raise FileNotFoundError(
-                    "Could not auto-detect LangGraph predictions file. "
-                    "Please specify with --langgraph-predictions"
-                )
-        else:
-            lg_path = langgraph_predictions_path
-            print(f"  ✓ Using specified LangGraph predictions: {lg_path}")
+        # Verify files exist
+        for path, name in [
+            (GROUND_TRUTH, "Ground truth"),
+            (STANDARD_PREDICTIONS, "Standard predictions"),
+            (LANGGRAPH_PREDICTIONS, "LangGraph predictions")
+        ]:
+            if not Path(path).exists():
+                raise FileNotFoundError(f"{name} file not found: {path}")
         
         # Evaluate both approaches
         standard_overall, standard_category = evaluate_approach(
-            std_path, gt_path, "Standard"
+            STANDARD_PREDICTIONS, GROUND_TRUTH, "Standard"
         )
         
         langgraph_overall, langgraph_category = evaluate_approach(
-            lg_path, gt_path, "LangGraph"
+            LANGGRAPH_PREDICTIONS, GROUND_TRUTH, "LangGraph"
         )
         
         # Compare results
@@ -609,20 +555,19 @@ def main():
         print_comparison_results(comparison)
         
         # Save results
-        output_path = output_path
+        output_dir = Path(OUTPUT_DIR)
+        output_dir.mkdir(parents=True, exist_ok=True)
         
-        if output_path_format in ['json', 'both']:
-            json_path = str(Path(output_path).with_suffix('.json'))
-            save_comparison_json(
-                comparison,
-                standard_overall, standard_category,
-                langgraph_overall, langgraph_category,
-                json_path
-            )
+        json_path = str(output_dir / "comparison_results.json")
+        save_comparison_json(
+            comparison,
+            standard_overall, standard_category,
+            langgraph_overall, langgraph_category,
+            json_path
+        )
         
-        if output_path_format in ['csv', 'both']:
-            csv_path = str(Path(output_path).with_suffix('.csv'))
-            save_comparison_csv(comparison, csv_path)
+        csv_path = str(output_dir / "comparison_results.csv")
+        save_comparison_csv(comparison, csv_path)
         
         print("\n✓ Comparative evaluation completed successfully!")
         return 0
