@@ -20,6 +20,79 @@ Researchers may be interested in several gigabytes of unlabeled contract pretrai
 
 This repository requires the HuggingFace [Transformers](https://huggingface.co/transformers) library. It was tested with Python 3.8, PyTorch 1.7, and Transformers 4.3/4.4. 
 
+## AWS Bedrock OSS120 Contract Labeling
+
+This repository includes tools for automated contract labeling using AWS Bedrock's OSS120 model. Two approaches are available:
+
+### 1. Standard Classifier (Fast, Parallel Processing)
+
+The standard classifier uses direct OSS120 model inference with parallel processing for high throughput.
+
+**Run with ZERO arguments:**
+```bash
+python cuad_processing/oss120_bedrock_labeler.py
+```
+
+**Features:**
+- ✓ Parallel processing with 200 threads
+- ✓ Incremental persistence and resume capability
+- ✓ Outputs to `labeled_contracts.csv`
+- ✓ Fast processing for large datasets
+
+### 2. Agentic Classifier (Accurate, LangGraph Reflection)
+
+The agentic classifier uses LangGraph's reflection pattern with a three-agent system for higher accuracy.
+
+**Run with ZERO arguments:**
+```bash
+python cuad_processing/run_agentic_classifier.py
+```
+
+**Features:**
+- ✓ Three-agent reflection: Classifier → Critic → Arbitrator
+- ✓ Higher accuracy through iterative refinement
+- ✓ Outputs to `labeled_contracts_langgraph.csv`
+- ✓ Sequential processing (slower but more accurate)
+
+### Setup
+
+1. Install dependencies:
+```bash
+pip install boto3 pyyaml langgraph
+```
+
+2. Configure AWS credentials in `cuad_processing/config.yaml`:
+```yaml
+bedrock_region: us-east-1
+bedrock_access_key: YOUR_ACCESS_KEY
+bedrock_secret_access_key: YOUR_SECRET_KEY
+bedrock_model_id: oss120
+```
+
+3. Generate input CSV files:
+```bash
+python cuad_processing/generate_cuad_csv.py
+```
+
+4. Run your preferred classifier (no arguments needed!):
+```bash
+# Standard classifier (fast)
+python cuad_processing/oss120_bedrock_labeler.py
+
+# OR
+
+# Agentic classifier (accurate)
+python cuad_processing/run_agentic_classifier.py
+```
+
+### Output Format
+
+Both classifiers produce CSV files with 83 columns:
+- `contract_id`: Unique identifier
+- For each of the 41 CUAD categories:
+  - `{category}_text`: Extracted clause text
+  - `{category}_label`: Binary label (0 or 1)
+
 ## Citation
 
 If you find this useful in your research, please consider citing:
