@@ -346,7 +346,7 @@ def main():
     parser.add_argument(
         '--config',
         type=str,
-        default='config.yaml',
+        default='./cuad_processing/config.yaml',
         help='Path to configuration file'
     )
     parser.add_argument(
