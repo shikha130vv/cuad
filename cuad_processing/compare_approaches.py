@@ -26,7 +26,6 @@ Author: CUAD Evaluation Team
 Date: 2025-11-17
 """
 
-import argparse
 import csv
 import json
 import sys
@@ -525,60 +524,18 @@ def save_comparison_csv(comparison: Dict[str, Any], output_path: str):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='Compare Standard and LangGraph approaches for CUAD contract labeling',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-    # Auto-detect all files and run comparison
-    python compare_approaches.py
+    """Compare Standard and LangGraph approaches for CUAD contract labeling.
     
-    # Specify custom ground truth
-    python compare_approaches.py --ground-truth output/cuad.csv
+    All paths are hardcoded - no arguments needed.
+    Simply run: python compare_approaches.py
+    """
     
-    # Specify all files explicitly
-    python compare_approaches.py --ground-truth output/cuad.csv \\
-        --standard-predictions output/labeled_contracts.csv \\
-        --langgraph-predictions output/labeled_contracts_langgraph.csv
-    
-    # Custom output location
-    python compare_approaches.py --output results/comparison.json
-        """
-    )
-    
-    parser.add_argument(
-        '--ground-truth',
-        type=str,
-        default=None,
-        help='Path to ground truth CSV file (default: auto-detect in output/)'
-    )
-    parser.add_argument(
-        '--standard-predictions',
-        type=str,
-        default=None,
-        help='Path to standard approach predictions CSV (default: auto-detect)'
-    )
-    parser.add_argument(
-        '--langgraph-predictions',
-        type=str,
-        default=None,
-        help='Path to LangGraph approach predictions CSV (default: auto-detect)'
-    )
-    parser.add_argument(
-        '--output',
-        type=str,
-        default='output/comparison_results.json',
-        help='Path to save comparison results (default: output/comparison_results.json)'
-    )
-    parser.add_argument(
-        '--output-format',
-        type=str,
-        choices=['json', 'csv', 'both'],
-        default='both',
-        help='Output format for results (default: both)'
-    )
-    
-    args = parser.parse_args()
+    # Hardcoded paths based on directory structure
+    ground_truth_path = "cuad_processing/output/cuad.csv"
+    standard_predictions_path = "cuad_processing/output/labeled_contracts.csv"
+    langgraph_predictions_path = "cuad_processing/output/labeled_contracts_langgraph.csv"
+    output_path = "cuad_processing/output/comparison_results.json"
+    output_format = "both"  # json, csv, or both
     
     try:
         print("\n" + "="*100)
@@ -589,7 +546,7 @@ Examples:
         print("\nAuto-detecting files...")
         
         # Ground truth
-        if args.ground_truth is None:
+        if ground_truth_path is None:
             gt_path = auto_detect_file('output/cuad.csv', 'ground truth')
             if gt_path is None:
                 gt_path = auto_detect_file('cuad_processing/output/cuad.csv', 'ground truth')
@@ -599,11 +556,11 @@ Examples:
                     "Please specify with --ground-truth"
                 )
         else:
-            gt_path = args.ground_truth
+            gt_path = ground_truth_path
             print(f"  ✓ Using specified ground truth: {gt_path}")
         
         # Standard predictions
-        if args.standard_predictions is None:
+        if standard_predictions_path is None:
             std_path = auto_detect_file('output/labeled_contracts.csv', 'standard predictions')
             if std_path is None:
                 std_path = auto_detect_file('cuad_processing/output/labeled_contracts.csv', 'standard predictions')
@@ -613,11 +570,11 @@ Examples:
                     "Please specify with --standard-predictions"
                 )
         else:
-            std_path = args.standard_predictions
+            std_path = standard_predictions_path
             print(f"  ✓ Using specified standard predictions: {std_path}")
         
         # LangGraph predictions
-        if args.langgraph_predictions is None:
+        if langgraph_predictions_path is None:
             lg_path = auto_detect_file('output/labeled_contracts_langgraph.csv', 'LangGraph predictions')
             if lg_path is None:
                 lg_path = auto_detect_file('cuad_processing/output/labeled_contracts_langgraph.csv', 'LangGraph predictions')
@@ -627,7 +584,7 @@ Examples:
                     "Please specify with --langgraph-predictions"
                 )
         else:
-            lg_path = args.langgraph_predictions
+            lg_path = langgraph_predictions_path
             print(f"  ✓ Using specified LangGraph predictions: {lg_path}")
         
         # Evaluate both approaches
@@ -652,9 +609,9 @@ Examples:
         print_comparison_results(comparison)
         
         # Save results
-        output_path = args.output
+        output_path = output_path
         
-        if args.output_format in ['json', 'both']:
+        if output_path_format in ['json', 'both']:
             json_path = str(Path(output_path).with_suffix('.json'))
             save_comparison_json(
                 comparison,
@@ -663,7 +620,7 @@ Examples:
                 json_path
             )
         
-        if args.output_format in ['csv', 'both']:
+        if output_path_format in ['csv', 'both']:
             csv_path = str(Path(output_path).with_suffix('.csv'))
             save_comparison_csv(comparison, csv_path)
         

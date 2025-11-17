@@ -206,19 +206,22 @@ def process_cuad_dataset(data_dir: str = './data', output_dir: str = './output')
 
 
 if __name__ == '__main__':
-    import argparse
+    """Generate CUAD CSV files from JSON data.
     
-    parser = argparse.ArgumentParser(description='Generate CSV from CUAD dataset')
-    parser.add_argument('--data-dir', default='./cuad_processing/data', help='Directory containing CUAD JSON files')
-    parser.add_argument('--output-dir', default='./cuad_processing/output', help='Directory to save CSV files')
-    parser.add_argument('--input-json', default="cuad_processing/data/CUADv1.json", help='Process a single JSON file')
-    parser.add_argument('--output-csv', default="cuad_processing/output/cuad.csv", help='Output CSV file path (for single file processing)')
+    All paths are hardcoded - no arguments needed.
+    Simply run: python generate_cuad_csv.py
+    """
     
-    args = parser.parse_args()
+    # Hardcoded paths based on directory structure
+    data_dir = './cuad_processing/data'
+    output_dir = './cuad_processing/output'
+    input_json = "cuad_processing/data/CUADv1.json"
+    output_csv = "cuad_processing/output/cuad.csv"
     
-    if args.input_json and args.output_csv:
+    # Process single file (default behavior)
+    if input_json and output_csv:
         # Process single file
-        generate_csv(args.input_json, args.output_csv)
+        generate_csv(input_json, output_csv)
     else:
         # Process entire dataset
-        process_cuad_dataset(args.data_dir, args.output_dir)
+        process_cuad_dataset(data_dir, output_dir)

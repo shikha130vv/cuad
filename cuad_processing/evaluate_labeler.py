@@ -18,7 +18,6 @@ Author: CUAD Evaluation Team
 Date: 2025-11-17
 """
 
-import argparse
 import csv
 import json
 import sys
@@ -492,74 +491,28 @@ def save_results_csv(
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='Evaluate CUAD Bedrock Labeler performance',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-    Examples:
-    # Basic evaluation
-    python evaluate_labeler.py --predictions pred.csv --ground-truth gt.csv
+    """Evaluate CUAD Bedrock Labeler performance.
     
-    # Save results to JSON
-    python evaluate_labeler.py --predictions pred.csv --ground-truth gt.csv --output results.json
+    All paths are hardcoded - no arguments needed.
+    Simply run: python evaluate_labeler.py
+    """
     
-    # Save results to CSV
-    python evaluate_labeler.py --predictions pred.csv --ground-truth gt.csv --output results.csv --output-format csv
-    
-    # Specify custom output directory
-    python evaluate_labeler.py --predictions pred.csv --ground-truth gt.csv --output-dir ./evaluation_results
-            """
-    )
-
-    parser.add_argument(
-        '--predictions',
-        type=str,
-        default="./cuad_processing/output/labeled_contracts.csv",
-        help='Path to predictions CSV file (output from bedrock labeler)'
-    )
-    parser.add_argument(
-        '--ground-truth',
-        type=str,
-        default="./cuad_processing/output/cuad.csv",
-        help='Path to ground truth CSV file (from generate_cuad_csv.py)'
-    )
-    parser.add_argument(
-        '--output',
-        type=str,
-        default="./cuad_processing/output/evaluation_results.csv",
-        help='Path to save evaluation results (JSON or CSV based on extension or --output-format)'
-    )
-    parser.add_argument(
-        '--output-format',
-        type=str,
-        choices=['json', 'csv'],
-        default='csv',
-        help='Output format for results (default: csv)'
-    )
-    parser.add_argument(
-        '--output-dir',
-        type=str,
-        default='./cuad_processing/output',
-        help='Directory to save output files (default: ./cuad_processing/output)'
-    )
-    parser.add_argument(
-        '--quiet',
-        action='store_true',
-        help='Suppress console output (only save to file)'
-    )
-
-    args = parser.parse_args()
-    
-
+    # Hardcoded paths based on directory structure
+    predictions_path = "./cuad_processing/output/labeled_contracts.csv"
+    ground_truth_path = "./cuad_processing/output/cuad.csv"
+    output_path = "./cuad_processing/output/evaluation_results.csv"
+    output_format = "csv"  # json or csv
+    output_dir = "./cuad_processing/output"
+    quiet = False
     
     try:
         # Load data
         print("Loading predictions...")
-        pred_ids, pred_labels = load_csv_data(args.predictions)
+        pred_ids, pred_labels = load_csv_data(predictions_path)
         print(f"  Loaded {len(pred_ids)} prediction contracts")
         
         print("Loading ground truth...")
-        gt_ids, gt_labels = load_csv_data(args.ground_truth)
+        gt_ids, gt_labels = load_csv_data(ground_truth_path)
         print(f"  Loaded {len(gt_ids)} ground truth contracts")
         
         # Align datasets
@@ -575,12 +528,12 @@ def main():
         category_metrics = evaluate_all_categories(aligned_pred, aligned_gt, common_ids)
         
         # Print results to console
-        if not args.quiet:
+        if not quiet:
             print_results(overall_metrics, category_metrics)
         
         # Save results to file
-        if args.output:
-            output_path = args.output
+        if output_path:
+            output_path = output_path
             # Determine format from extension if not specified
             if output_path.endswith('.csv'):
                 save_results_csv(overall_metrics, category_metrics, output_path)
@@ -588,7 +541,7 @@ def main():
                 save_results_json(overall_metrics, category_metrics, output_path)
             else:
                 # Use specified format
-                if args.output_format == 'csv':
+                if output_path_format == 'csv':
                     output_path = str(Path(output_path).with_suffix('.csv'))
                     save_results_csv(overall_metrics, category_metrics, output_path)
                 else:
@@ -596,10 +549,10 @@ def main():
                     save_results_json(overall_metrics, category_metrics, output_path)
         else:
             # Default output path
-            output_dir = Path(args.output_dir)
+            output_dir = Path(output_path_dir)
             output_dir.mkdir(parents=True, exist_ok=True)
             
-            if args.output_format == 'csv':
+            if output_path_format == 'csv':
                 output_path = output_dir / 'evaluation_results.csv'
                 save_results_csv(overall_metrics, category_metrics, str(output_path))
             else:
