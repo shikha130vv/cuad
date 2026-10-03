@@ -3,6 +3,9 @@
 `test_split_questionable_labels.csv` lists 206 CUAD answers in 59 **test-split** contracts whose
 text does not appear to meet the definition of the category it is labelled with.
 
+
+**Who reviewed:** every passage was ruled by an AI model (Claude), not by a lawyer, and no human has validated the rulings. Treat each row as a candidate for expert review, not as a confirmed error.
+
 ## How the list was made
 
 1. An automated contract-clause extractor labelled the test contracts.
@@ -32,7 +35,7 @@ definition and listed only when it plainly does not meet it. Twenty-two rows wer
 
 ## Caveats
 
-- One reviewer's reading against the written definitions, not a legal review.
+- An AI model's reading against the written definitions, not a legal review. In an earlier 100-item sample whose AI reviewers also checked how CUAD labels similar passages in the training split, fewer CUAD labels were judged wrong than in this list, so some rows may follow CUAD's own labelling practice.
 - Minimum Commitment accounts for 63 rows. Its definition asks for an amount one party must
   *buy* from the counterparty; CUAD also labels minimum sales efforts, sales-force sizes and
   royalty floors. Whether those belong in the category is a dataset-policy question.
