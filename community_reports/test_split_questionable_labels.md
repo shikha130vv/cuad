@@ -18,7 +18,7 @@ text does not appear to meet the definition of the category it is labelled with.
 
 87 rows were added in a second pass, after a later run of the extractor over the same
 contracts, with the same method: each CUAD answer was read in full against the written
-definition and listed only when it plainly does not meet it.
+definition and listed only when it plainly does not meet it. Twenty-two rows were later withdrawn: 21 lead-ins and fragments, and one duplicate.
 
 ## Columns
 
