@@ -3,6 +3,9 @@
 `test_split_missing_labels.csv` lists 380 passages in 73 of the 99 CUAD **test-split** contracts reviewed that
 appear to meet a CUAD category definition but carry no label for that category.
 
+
+**Who reviewed:** every passage was ruled by an AI model (Claude), not by a lawyer, and no human has validated the rulings. Treat each row as a candidate for expert review, not as a confirmed error.
+
 ## How the list was made
 
 1. An automated contract-clause extractor labelled the 99 test contracts.
@@ -35,7 +38,7 @@ and are kept whole.
 
 ## Caveats
 
-- One reviewer's reading against the written definitions, not a legal review.
+- An AI model's reading against the written definitions, not a legal review. In an earlier 100-item sample whose AI reviewers also checked how CUAD labels similar passages in the training split, fewer CUAD labels were judged wrong than in this list, so some rows may follow CUAD's own labelling practice.
 - Some categories (for example Post-Termination Services) are labelled selectively in CUAD's
   training data; whether these passages should be labelled is a dataset-policy question.
 - Spans follow sentence boundaries; CUAD's annotators sometimes mark shorter spans.
