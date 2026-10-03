@@ -1,6 +1,6 @@
 # Possible missing labels in the CUAD test split
 
-`test_split_missing_labels.csv` lists 212 passages in 99 CUAD **test-split** contracts that
+`test_split_missing_labels.csv` lists 380 passages in 73 of the 99 CUAD **test-split** contracts reviewed that
 appear to meet a CUAD category definition but carry no label for that category.
 
 ## How the list was made
@@ -14,6 +14,14 @@ appear to meet a CUAD category definition but carry no label for that category.
 4. Each listed passage was trimmed to the sentences that carry the clause (headings and
    unrelated sentences removed) and located in the CUAD contract text, so `answer_text` is
    CUAD's own text and `answer_start` its character offset, as in CUAD's annotations.
+
+## Second pass
+
+168 rows were added in a second pass, after a later run of the extractor over the same 99
+contracts. The method is the same: each passage was read in full against the written
+definition, kept only when it plainly meets it, and trimmed to the sentences that carry the
+clause. A few clauses are long in themselves (an audit right with its provisos, for example)
+and are kept whole.
 
 ## Columns
 
