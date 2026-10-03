@@ -38,7 +38,7 @@ and are kept whole.
 
 ## Caveats
 
-- An AI model's reading against the written definitions, not a legal review. In an earlier 100-item sample whose AI reviewers also checked how CUAD labels similar passages in the training split, fewer CUAD labels were judged wrong than in this list, so some rows may follow CUAD's own labelling practice.
+- An AI model's reading against the written definitions, not a legal review. An earlier 100-item sample, whose AI reviewers also checked how CUAD labels similar passages in the training split, found a similar share of missing labels (44%).
 - Some categories (for example Post-Termination Services) are labelled selectively in CUAD's
   training data; whether these passages should be labelled is a dataset-policy question.
 - Spans follow sentence boundaries; CUAD's annotators sometimes mark shorter spans.
