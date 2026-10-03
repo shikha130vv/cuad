@@ -1,6 +1,6 @@
 # Possibly incorrect labels in the CUAD test split
 
-`test_split_questionable_labels.csv` lists 207 CUAD answers in 59 **test-split** contracts whose
+`test_split_questionable_labels.csv` lists 206 CUAD answers in 59 **test-split** contracts whose
 text does not appear to meet the definition of the category it is labelled with.
 
 ## How the list was made
