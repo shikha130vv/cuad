@@ -1,6 +1,6 @@
 # Possibly incorrect labels in the CUAD test split
 
-`test_split_questionable_labels.csv` lists 228 CUAD answers in 60 **test-split** contracts whose
+`test_split_questionable_labels.csv` lists 207 CUAD answers in 59 **test-split** contracts whose
 text does not appear to meet the definition of the category it is labelled with.
 
 ## How the list was made
@@ -33,7 +33,7 @@ definition and listed only when it plainly does not meet it.
 ## Caveats
 
 - One reviewer's reading against the written definitions, not a legal review.
-- Minimum Commitment accounts for 68 rows. Its definition asks for an amount one party must
+- Minimum Commitment accounts for 63 rows. Its definition asks for an amount one party must
   *buy* from the counterparty; CUAD also labels minimum sales efforts, sales-force sizes and
   royalty floors. Whether those belong in the category is a dataset-policy question.
-- Some rows are fragments (a lead-in or a partial sentence) that carry no clause on their own.
+- CUAD's annotators keep a clause's lead-in and mark dropped sub-parts with "<omitted>"; lead-ins, sub-parts and other short fragments are therefore not listed, since they cannot be judged on their own.
